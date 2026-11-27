@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>實戰滾倉模擬練習器 V2 (BTC / ETH / SOL / BCH + POI)</title>
+  <title>實戰滾倉模擬練習器 V3 (32幣種 + 代幣化美股 + POI)</title>
   <style>
     :root {
       --bg: #000000;
@@ -30,7 +30,7 @@
     }
 
     .container {
-      max-width: 1440px;
+      max-width: 1460px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
@@ -98,11 +98,11 @@
       color: #fff;
       font-weight: 600;
     }
-    button.sym-btn.active {
-      background: #1f6feb;
-      border-color: #58a6ff;
-      color: #fff;
+    select.sym-select {
+      background: #111827;
+      border-color: #3b82f6;
       font-weight: 700;
+      min-width: 175px;
     }
     button.btn-long {
       background: var(--green);
@@ -301,12 +301,49 @@
       </div>
 
       <div class="controls-row">
-        <div class="controls-row" id="symBtns">
-          <button class="sym-btn active" onclick="switchSymbol('BTCUSDT', this)">BTC</button>
-          <button class="sym-btn" onclick="switchSymbol('ETHUSDT', this)">ETH</button>
-          <button class="sym-btn" onclick="switchSymbol('SOLUSDT', this)">SOL</button>
-          <button class="sym-btn" onclick="switchSymbol('BCHUSDT', this)">BCH</button>
-        </div>
+        <select id="symbolSelect" class="sym-select" onchange="onSelectSymbol()" title="選擇交易標的">
+          <optgroup label="主流公鏈 & 大盤">
+            <option value="BTCUSDT" selected>BTCUSDT (比特幣)</option>
+            <option value="ETHUSDT">ETHUSDT (以太坊)</option>
+            <option value="SOLUSDT">SOLUSDT (Solana)</option>
+            <option value="BNBUSDT">BNBUSDT (BNB)</option>
+            <option value="XRPUSDT">XRPUSDT (瑞波幣)</option>
+            <option value="ADAUSDT">ADAUSDT (Cardano)</option>
+            <option value="SUIUSDT">SUIUSDT (Sui)</option>
+            <option value="BCHUSDT">BCHUSDT (比特幣現金)</option>
+            <option value="LTCUSDT">LTCUSDT (萊特幣)</option>
+            <option value="ETCUSDT">ETCUSDT (以太經典)</option>
+            <option value="NEARUSDT">NEARUSDT (Near)</option>
+            <option value="ZECUSDT">ZECUSDT (Zcash)</option>
+          </optgroup>
+          <optgroup label="AI / DeFi / Layer2">
+            <option value="TAOUSDT">TAOUSDT (Bittensor)</option>
+            <option value="WLDUSDT">WLDUSDT (Worldcoin)</option>
+            <option value="AAVEUSDT">AAVEUSDT (Aave)</option>
+            <option value="UNIUSDT">UNIUSDT (Uniswap)</option>
+            <option value="LINKUSDT">LINKUSDT (Chainlink)</option>
+            <option value="ENAUSDT">ENAUSDT (Ethena)</option>
+            <option value="LDOUSDT">LDOUSDT (Lido DAO)</option>
+            <option value="OPUSDT">OPUSDT (Optimism)</option>
+            <option value="ASTERUSDT">ASTERUSDT (Aster)</option>
+            <option value="MYXUSDT">MYXUSDT (MYX)</option>
+          </optgroup>
+          <optgroup label="迷因幣 (Meme)">
+            <option value="DOGEUSDT">DOGEUSDT (狗狗幣)</option>
+            <option value="WIFUSDT">WIFUSDT (dogwifhat)</option>
+            <option value="FLOKIUSDT">FLOKIUSDT (FLOKI)</option>
+            <option value="TURBOUSDT">TURBOUSDT (Turbo)</option>
+            <option value="POLUSUSDT">POLUSUSDT (Polus)</option>
+          </optgroup>
+          <optgroup label="黃金 & 代幣化美股">
+            <option value="XAUTUSDT">XAUTUSDT (泰達黃金)</option>
+            <option value="PAXGUSDT">PAXGUSDT (PAX 黃金)</option>
+            <option value="NVDAXUSDT">NVDAXUSDT (輝達代幣股)</option>
+            <option value="INTCXUSDT">INTCXUSDT (英特爾代幣股)</option>
+            <option value="BMNRXUSDT">BMNRXUSDT (BMNRX 代幣股)</option>
+          </optgroup>
+        </select>
+
         <button id="modeLiveBtn" class="active" onclick="switchMode('live')">即時盤面模擬</button>
         <button id="modeReplayBtn" onclick="switchMode('replay')">近期 K 線步進回放</button>
         <select id="tfSelect" onchange="changeTimeframe()">
@@ -428,7 +465,8 @@
         <div class="rule-note">
           <strong>POI + 滾倉實戰節奏：</strong><br />
           • 價格回踩未失效的 <strong>看漲/看跌 POI 區域</strong> 並站穩均線時建立首單。<br />
-          • 脫離成本區出現浮盈後再用「浮盈滾倉」加碼；加碼後留意<strong>黃色均價線</strong>與<strong>紅色強平線</strong>是否過於貼近現價。
+          • 脫離成本區出現浮盈後再用「浮盈滾倉」加碼；加碼後留意<strong>黃色均價線</strong>與<strong>紅色強平線</strong>是否過於貼近現價。<br />
+          • 代幣化美股與部分小幣若 Binance 無合約報價，系統會自動切換 Bybit / OKX 或離線模擬行情。
         </div>
       </div>
     </div>
@@ -460,10 +498,38 @@
     const MAINT_MARGIN = 0.005;
 
     const SYMBOL_META = {
-      BTCUSDT: { coin: 'BTC', icon: '₿', fallbackPrice: 91500, step: 650, decimals: 1 },
-      ETHUSDT: { coin: 'ETH', icon: 'Ξ', fallbackPrice: 3150, step: 45, decimals: 2 },
-      SOLUSDT: { coin: 'SOL', icon: '◎', fallbackPrice: 185, step: 6, decimals: 2 },
-      BCHUSDT: { coin: 'BCH', icon: '฿', fallbackPrice: 460, step: 12, decimals: 2 }
+      BTCUSDT:   { coin: 'BTC',   icon: '₿', fallbackPrice: 92000,   step: 650,    decimals: 1, qtyDec: 4 },
+      ETHUSDT:   { coin: 'ETH',   icon: 'Ξ', fallbackPrice: 3150,    step: 45,     decimals: 2, qtyDec: 4 },
+      SOLUSDT:   { coin: 'SOL',   icon: '◎', fallbackPrice: 185,     step: 6,      decimals: 2, qtyDec: 3 },
+      BNBUSDT:   { coin: 'BNB',   icon: '❖', fallbackPrice: 640,     step: 10,     decimals: 2, qtyDec: 3 },
+      XRPUSDT:   { coin: 'XRP',   icon: '✕', fallbackPrice: 2.35,    step: 0.08,   decimals: 4, qtyDec: 1 },
+      ADAUSDT:   { coin: 'ADA',   icon: '₳', fallbackPrice: 0.88,    step: 0.03,   decimals: 4, qtyDec: 1 },
+      SUIUSDT:   { coin: 'SUI',   icon: '💧', fallbackPrice: 3.60,   step: 0.15,   decimals: 4, qtyDec: 1 },
+      BCHUSDT:   { coin: 'BCH',   icon: '฿', fallbackPrice: 460,     step: 12,     decimals: 2, qtyDec: 3 },
+      LTCUSDT:   { coin: 'LTC',   icon: 'Ł', fallbackPrice: 105,     step: 3.5,    decimals: 2, qtyDec: 3 },
+      ETCUSDT:   { coin: 'ETC',   icon: '⟠', fallbackPrice: 28.5,    step: 1.1,    decimals: 3, qtyDec: 2 },
+      NEARUSDT:  { coin: 'NEAR',  icon: 'Ⓝ', fallbackPrice: 5.40,    step: 0.25,   decimals: 3, qtyDec: 2 },
+      ZECUSDT:   { coin: 'ZEC',   icon: 'ⓩ', fallbackPrice: 52.0,    step: 2.2,    decimals: 2, qtyDec: 3 },
+      TAOUSDT:   { coin: 'TAO',   icon: 'τ', fallbackPrice: 480,     step: 18,     decimals: 2, qtyDec: 3 },
+      WLDUSDT:   { coin: 'WLD',   icon: '🌐', fallbackPrice: 2.40,   step: 0.12,   decimals: 4, qtyDec: 1 },
+      AAVEUSDT:  { coin: 'AAVE',  icon: '👻', fallbackPrice: 260,    step: 9,      decimals: 2, qtyDec: 3 },
+      UNIUSDT:   { coin: 'UNI',   icon: '🦄', fallbackPrice: 13.5,   step: 0.6,    decimals: 3, qtyDec: 2 },
+      LINKUSDT:  { coin: 'LINK',  icon: '⬡', fallbackPrice: 21.0,    step: 0.8,    decimals: 3, qtyDec: 2 },
+      ENAUSDT:   { coin: 'ENA',   icon: 'ⓔ', fallbackPrice: 0.92,    step: 0.04,   decimals: 4, qtyDec: 1 },
+      LDOUSDT:   { coin: 'LDO',   icon: '🌊', fallbackPrice: 1.85,   step: 0.08,   decimals: 4, qtyDec: 1 },
+      OPUSDT:    { coin: 'OP',    icon: '🔴', fallbackPrice: 1.95,   step: 0.08,   decimals: 4, qtyDec: 1 },
+      ASTERUSDT: { coin: 'ASTER', icon: '✦', fallbackPrice: 0.12,    step: 0.006,  decimals: 5, qtyDec: 0 },
+      MYXUSDT:   { coin: 'MYX',   icon: '◈', fallbackPrice: 0.18,    step: 0.01,   decimals: 5, qtyDec: 0 },
+      DOGEUSDT:  { coin: 'DOGE',  icon: 'Ð', fallbackPrice: 0.34,    step: 0.015,  decimals: 5, qtyDec: 0 },
+      WIFUSDT:   { coin: 'WIF',   icon: '🐶', fallbackPrice: 2.15,   step: 0.12,   decimals: 4, qtyDec: 1 },
+      FLOKIUSDT: { coin: 'FLOKI', icon: '⚔', fallbackPrice: 0.00018, step: 0.00001, decimals: 7, qtyDec: 0 },
+      TURBOUSDT: { coin: 'TURBO', icon: '🐸', fallbackPrice: 0.0085,  step: 0.0004, decimals: 6, qtyDec: 0 },
+      POLUSUSDT: { coin: 'POLUS', icon: '✦', fallbackPrice: 0.045,   step: 0.002,  decimals: 5, qtyDec: 0 },
+      XAUTUSDT:  { coin: 'XAUT',  icon: '🥇', fallbackPrice: 2680,   step: 18,     decimals: 2, qtyDec: 4 },
+      PAXGUSDT:  { coin: 'PAXG',  icon: '🪙', fallbackPrice: 2685,   step: 18,     decimals: 2, qtyDec: 4 },
+      NVDAXUSDT: { coin: 'NVDAX', icon: '📈', fallbackPrice: 142.0,  step: 3.5,    decimals: 2, qtyDec: 3 },
+      INTCXUSDT: { coin: 'INTCX', icon: '💻', fallbackPrice: 24.5,   step: 0.8,    decimals: 2, qtyDec: 2 },
+      BMNRXUSDT: { coin: 'BMNRX', icon: '📊', fallbackPrice: 18.0,   step: 0.9,    decimals: 2, qtyDec: 2 }
     };
 
     let state = {
@@ -496,12 +562,17 @@
     const wrap = document.getElementById('canvasWrap');
 
     function getMeta(sym = state.symbol) {
-      return SYMBOL_META[sym] || SYMBOL_META.BTCUSDT;
+      return SYMBOL_META[sym] || { coin: sym.replace('USDT', ''), icon: '◈', fallbackPrice: 100, step: 2, decimals: 3, qtyDec: 2 };
     }
 
     function fmtPrice(p, sym = state.symbol) {
       const dec = getMeta(sym).decimals;
       return p.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    function fmtQty(q, sym = state.symbol) {
+      const dec = getMeta(sym).qtyDec;
+      return q.toFixed(dec);
     }
 
     function resizeCanvas() {
@@ -546,7 +617,6 @@
       const zones = [];
       if (candles.length < 15) return zones;
 
-      // 計算近期平均實體大小，用來過濾無效小波動
       let sumBody = 0;
       for (let i = Math.max(0, candles.length - 50); i < candles.length; i++) {
         sumBody += Math.abs(candles[i].close - candles[i].open);
@@ -558,7 +628,6 @@
         const c1 = candles[i + 1];
         const c2 = candles[i + 2];
 
-        // 1. 看漲 POI (Demand OB)：陰線後緊接強勢陽線推動並形成 FVG 或突破前高
         const isBearOB = ob.close < ob.open;
         const c1BullBody = c1.close - c1.open;
         const hasBullFVG = c2.low > ob.high;
@@ -569,24 +638,16 @@
           const bottom = ob.low;
           let mitigated = false;
           for (let j = i + 3; j < candles.length; j++) {
-            // 若後續收盤價實體跌破 POI 下緣，視為失效
             if (candles[j].close < bottom) {
               mitigated = true;
               break;
             }
           }
           if (!mitigated) {
-            zones.push({
-              type: 'BULL',
-              startIndex: i,
-              top,
-              bottom,
-              hasFVG: hasBullFVG
-            });
+            zones.push({ type: 'BULL', startIndex: i, top, bottom, hasFVG: hasBullFVG });
           }
         }
 
-        // 2. 看跌 POI (Supply OB)：陽線後緊接強勢陰線下殺並形成 FVG 或跌破前低
         const isBullOB = ob.close > ob.open;
         const c1BearBody = c1.open - c1.close;
         const hasBearFVG = c2.high < ob.low;
@@ -597,25 +658,17 @@
           const bottom = Math.min(ob.open, ob.low);
           let mitigated = false;
           for (let j = i + 3; j < candles.length; j++) {
-            // 若後續收盤價實體突破 POI 上緣，視為失效
             if (candles[j].close > top) {
               mitigated = true;
               break;
             }
           }
           if (!mitigated) {
-            zones.push({
-              type: 'BEAR',
-              startIndex: i,
-              top,
-              bottom,
-              hasFVG: hasBearFVG
-            });
+            zones.push({ type: 'BEAR', startIndex: i, top, bottom, hasFVG: hasBearFVG });
           }
         }
       }
 
-      // 保留距離現價最近且未被吞沒的最多 5 個有效 POI，避免畫面過亂
       const lastClose = candles[candles.length - 1].close;
       return zones
         .sort((a, b) => {
@@ -647,7 +700,7 @@
       const ema144 = ema144All.slice(startIdx);
       const poiZones = state.showPOI ? detectPOIZones(candles) : [];
 
-      const padL = 14, padR = 82, padT = 22, padB = 28;
+      const padL = 14, padR = 92, padT = 22, padB = 28;
       const plotW = W - padL - padR;
       const plotH = H - padT - padB;
 
@@ -668,7 +721,7 @@
         }
       }
 
-      const range = Math.max(0.01, maxP - minP);
+      const range = Math.max(1e-9, maxP - minP);
       minP -= range * 0.06;
       maxP += range * 0.06;
 
@@ -701,7 +754,7 @@
         ctx.fillText(formatTime(candles[i].time), x, H - 8);
       }
 
-      // 1) 繪製 POI 需求區 / 供給區色塊（放在 K 線底層）
+      // 1) 繪製 POI 需求區 / 供給區色塊
       poiZones.forEach(z => {
         const xStart = padL + z.startIndex * stepX;
         const xEnd = W - padR;
@@ -737,9 +790,9 @@
         });
         ctx.stroke();
       }
-      drawLine(ema144, '#ffffff', 2.0); // EMA 144 白色
-      drawLine(ema55, '#2997ff', 1.7);  // EMA 55 藍色
-      drawLine(ema21, '#ff3b30', 1.7);  // EMA 21 紅色
+      drawLine(ema144, '#ffffff', 2.0);
+      drawLine(ema55, '#2997ff', 1.7);
+      drawLine(ema21, '#ff3b30', 1.7);
 
       // 3) 繪製 K 線（綠漲紅跌）
       const bodyW = Math.max(3, stepX * 0.64);
@@ -763,7 +816,7 @@
         ctx.fillRect(xCenter - bodyW / 2, top, bodyW, h);
       });
 
-      // 4) 繪製水平價格標記線（現價、均價、強平價）
+      // 4) 繪製水平價格標記線
       function drawTagLine(price, color, label, dashed = true) {
         if (price < minP || price > maxP) return;
         const y = priceToY(price);
@@ -815,7 +868,7 @@
         ctx.restore();
 
         ctx.fillStyle = 'rgba(13, 17, 23, 0.94)';
-        ctx.fillRect(padL + 6, padT + 4, 480, 22);
+        ctx.fillRect(padL + 6, padT + 4, 510, 22);
         ctx.fillStyle = '#ffffff';
         ctx.font = '12px monospace';
         ctx.textAlign = 'left';
@@ -827,32 +880,61 @@
       }
     }
 
+    function mapBybitInterval(tf) {
+      const m = { '15m': '15', '30m': '30', '1h': '60', '4h': '240', '6h': '360' };
+      return m[tf] || '60';
+    }
+
     async function fetchKlines(sym, tf, limit = 300) {
       const badge = document.getElementById('connBadge');
-      const endpoints = [
+
+      // 1. 嘗試 Binance 合約與現貨
+      const binanceUrls = [
         `https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${tf}&limit=${limit}`,
         `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${tf}&limit=${limit}`
       ];
-
-      for (const url of endpoints) {
+      for (const url of binanceUrls) {
         try {
           const res = await fetch(url);
           if (!res.ok) continue;
           const raw = await res.json();
-          const candles = raw.map(k => ({
-            time: Math.floor(k[0] / 1000),
-            open: parseFloat(k[1]),
-            high: parseFloat(k[2]),
-            low: parseFloat(k[3]),
-            close: parseFloat(k[4])
-          }));
-          badge.textContent = `已連線即時盤面 (${sym})`;
-          badge.className = 'badge';
-          return candles;
+          if (Array.isArray(raw) && raw.length > 10) {
+            badge.textContent = `已連線即時盤面 (${sym})`;
+            badge.className = 'badge';
+            return raw.map(k => ({
+              time: Math.floor(k[0] / 1000),
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4])
+            }));
+          }
         } catch (e) {}
       }
 
-      badge.textContent = `離線備援模擬 (${sym})`;
+      // 2. 備援嘗試 Bybit 公開 K 線（支援部分新幣與黃金合約）
+      try {
+        const bybitTf = mapBybitInterval(tf);
+        const bybitRes = await fetch(`https://api.bybit.com/v5/market/kline?category=linear&symbol=${sym}&interval=${bybitTf}&limit=${limit}`);
+        if (bybitRes.ok) {
+          const j = await bybitRes.json();
+          const list = j?.result?.list;
+          if (Array.isArray(list) && list.length > 10) {
+            badge.textContent = `已連線 Bybit 盤面 (${sym})`;
+            badge.className = 'badge';
+            return list.reverse().map(k => ({
+              time: Math.floor(parseInt(k[0], 10) / 1000),
+              open: parseFloat(k[1]),
+              high: parseFloat(k[2]),
+              low: parseFloat(k[3]),
+              close: parseFloat(k[4])
+            }));
+          }
+        }
+      } catch (e) {}
+
+      // 3. 離線備援模擬盤面（代幣化美股或未上市合約自動啟動）
+      badge.textContent = `模擬行情模式 (${sym})`;
       badge.className = 'badge warn';
       return generateFallbackCandles(sym, limit);
     }
@@ -867,9 +949,9 @@
         const t = now - i * step;
         const change = (Math.random() - 0.49) * meta.step;
         const open = price;
-        const close = Math.max(0.1, open + change);
+        const close = Math.max(meta.fallbackPrice * 0.05, open + change);
         const high = Math.max(open, close) + Math.random() * meta.step * 0.45;
-        const low = Math.max(0.05, Math.min(open, close) - Math.random() * meta.step * 0.45);
+        const low = Math.max(meta.fallbackPrice * 0.02, Math.min(open, close) - Math.random() * meta.step * 0.45);
         list.push({ time: t, open, high, low, close });
         price = close;
       }
@@ -879,12 +961,21 @@
     async function fetchLiveTicker(sym) {
       try {
         const res = await fetch(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${sym}`);
-        if (!res.ok) return null;
-        const data = await res.json();
-        return parseFloat(data.price);
-      } catch (e) {
-        return null;
-      }
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.price) return parseFloat(data.price);
+        }
+      } catch (e) {}
+
+      try {
+        const res2 = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          if (data2?.price) return parseFloat(data2.price);
+        }
+      } catch (e) {}
+
+      return null;
     }
 
     async function loadMarketData() {
@@ -923,7 +1014,7 @@
         const livePrice = await fetchLiveTicker(symAtStart);
         const last = state.allCandles[state.allCandles.length - 1];
         const jitter = (Math.random() - 0.5) * meta.step * 0.08;
-        const nextPrice = livePrice ?? Math.max(0.1, last.close + jitter);
+        const nextPrice = livePrice ?? Math.max(meta.fallbackPrice * 0.02, last.close + jitter);
 
         last.close = nextPrice;
         last.high = Math.max(last.high, nextPrice);
@@ -942,17 +1033,18 @@
       drawChart();
     }
 
-    function switchSymbol(sym, btn) {
+    function onSelectSymbol() {
+      const sel = document.getElementById('symbolSelect');
+      const sym = sel.value;
       if (state.posSide && state.posSymbol && state.posSymbol !== sym) {
         const curCoin = getMeta(state.posSymbol).coin;
         const nextCoin = getMeta(sym).coin;
-        if (!confirm(`目前仍有 ${curCoin} 持倉未平倉，切換到 ${nextCoin} 後圖表均價/強平線只會顯示在 ${curCoin} 分頁。確定切換嗎？`)) {
+        if (!confirm(`目前仍有 ${curCoin} 持倉未平倉，切換到 ${nextCoin} 後圖表均價/強平線只會顯示在 ${curCoin} 頁面。確定切換嗎？`)) {
+          sel.value = state.symbol;
           return;
         }
       }
       state.symbol = sym;
-      document.querySelectorAll('#symBtns button').forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
       loadMarketData();
     }
 
@@ -1214,10 +1306,11 @@
 
       const posEl = document.getElementById('mPos');
       if (state.posSide && state.posSymbol) {
-        const pCoin = getMeta(state.posSymbol).coin;
+        const pSym = state.posSymbol;
+        const pCoin = getMeta(pSym).coin;
         document.getElementById('mPosLabel').textContent = `持倉方向 / 規模 (${pCoin})`;
         const sideText = state.posSide === 'LONG' ? '做多 LONG' : '做空 SHORT';
-        posEl.textContent = `${sideText} ${state.posQty.toFixed(4)} ${pCoin}`;
+        posEl.textContent = `${sideText} ${fmtQty(state.posQty, pSym)} ${pCoin}`;
         posEl.className = 'metric-val ' + (state.posSide === 'LONG' ? 'pos-green' : 'pos-red');
       } else {
         document.getElementById('mPosLabel').textContent = `持倉方向 / 規模 (${meta.coin})`;
@@ -1251,7 +1344,7 @@
         <td>${action}</td>
         <td class="${side === 'LONG' ? 'pos-green' : 'pos-red'}">${side}</td>
         <td>$${fmtPrice(price, sym)}</td>
-        <td>${qty >= 0 ? '+' : ''}${qty.toFixed(4)} ${coin}</td>
+        <td>${qty >= 0 ? '+' : ''}${fmtQty(qty, sym)} ${coin}</td>
         <td>$${Math.abs(margin).toFixed(2)}</td>
         <td>$${fee.toFixed(2)}</td>
         <td class="${pnlClass}">${realized === 0 ? '--' : (realized > 0 ? '+' : '') + '$' + realized.toFixed(2)}</td>
