@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>實戰滾倉模擬練習器 V2 (BTC / ETH / SOL / BCH + POI)</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --panel: #0d1117;
+      --panel-2: #161b22;
+      --border: #262c36;
+      --text: #ffffff;
+      --muted: #9ba3af;
+      --green: #00c853;
+      --green-bg: rgba(0, 200, 83, 0.14);
+      --red: #ff3b30;
+      --red-bg: rgba(255, 59, 48, 0.14);
+      --yellow: #ffd60a;
+      --blue: #2997ff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", sans-serif;
+      line-height: 1.65;
+      padding: 16px;
+    }
+
+    .container {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .topbar {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .title-group h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(0,200,83,0.4);
+    }
+    .badge.warn {
+      background: rgba(255, 214, 10, 0.14);
+      color: var(--yellow);
+      border-color: rgba(255, 214, 10, 0.4);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button, select {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+    button:hover, select:hover { border-color: #4b5563; }
+    button.active {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #fff;
+      font-weight: 600;
+    }
+    button.sym-btn.active {
+      background: #1f6feb;
+      border-color: #58a6ff;
+      color: #fff;
+      font-weight: 700;
+    }
+    button.btn-long {
+      background: var(--green);
+      border-color: var(--green);
+      color: #000;
+      font-weight: 700;
+    }
+    button.btn-long:hover { opacity: 0.9; }
+    button.btn-short {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+      font-weight: 700;
+    }
+    button.btn-short:hover { opacity: 0.9; }
+    button.btn-roll {
+      background: rgba(255, 214, 10, 0.16);
+      border-color: var(--yellow);
+      color: var(--yellow);
+      font-weight: 600;
+    }
+    button.btn-roll:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+      gap: 10px;
+    }
+    .metric-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .metric-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .metric-val {
+      font-size: 18px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .pos-green { color: var(--green); }
+    .pos-red { color: var(--red); }
+    .pos-yellow { color: var(--yellow); }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 14px;
+    }
+    @media (max-width: 1024px) {
+      .workspace { grid-template-columns: 1fr; }
+    }
+
+    .chart-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .chart-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .ema-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12px;
+      color: #e5e7eb;
+      align-items: center;
+    }
+    .poi-swatch {
+      display: inline-block;
+      width: 12px;
+      height: 10px;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 3px;
+    }
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      background: #000000;
+      border-radius: 6px;
+      border: 1px solid #1b222c;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .side-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+    }
+    .btn-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .btn-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+    .rule-note {
+      background: var(--panel-2);
+      border-left: 3px solid var(--yellow);
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: #d1d5db;
+      border-radius: 4px;
+    }
+
+    .log-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    th { color: var(--muted); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="title-group">
+        <h1>
+          <span id="pageTitleSym">₿ BTCUSDT</span> 實戰滾倉模擬練習器
+          <span id="connBadge" class="badge">連線中...</span>
+        </h1>
+        <div class="subtitle" id="barTimeInfo">最新 K 線時間：-- ｜ 手續費 0.05% ｜ 維持保證金率 0.5%</div>
+      </div>
+
+      <div class="controls-row">
+        <div class="controls-row" id="symBtns">
+          <button class="sym-btn active" onclick="switchSymbol('BTCUSDT', this)">BTC</button>
+          <button class="sym-btn" onclick="switchSymbol('ETHUSDT', this)">ETH</button>
+          <button class="sym-btn" onclick="switchSymbol('SOLUSDT', this)">SOL</button>
+          <button class="sym-btn" onclick="switchSymbol('BCHUSDT', this)">BCH</button>
+        </div>
+        <button id="modeLiveBtn" class="active" onclick="switchMode('live')">即時盤面模擬</button>
+        <button id="modeReplayBtn" onclick="switchMode('replay')">近期 K 線步進回放</button>
+        <select id="tfSelect" onchange="changeTimeframe()">
+          <option value="15m">15m</option>
+          <option value="30m">30m</option>
+          <option value="1h" selected>1h</option>
+          <option value="4h">4h</option>
+          <option value="6h">6h</option>
+        </select>
+        <button id="poiToggleBtn" class="active" onclick="togglePOI()">POI 區域: 開</button>
+        <button onclick="resetAccount()">重置帳戶 ($10,000)</button>
+      </div>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label" id="mPriceLabel">當前 BTC 價格</div>
+        <div class="metric-val" id="mPrice">--</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">帳戶淨值 (Equity)</div>
+        <div class="metric-val" id="mEquity">$10,000.00</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">錢包餘額 / 可用保證金</div>
+        <div class="metric-val" id="mBalance">$10,000 / $10,000</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">浮動盈虧 (未實現)</div>
+        <div class="metric-val" id="mPnl">$0.00 (0.00%)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label" id="mPosLabel">持倉方向 / 規模 (BTC)</div>
+        <div class="metric-val" id="mPos">空手</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">持倉均價 / 預估強平價</div>
+        <div class="metric-val" id="mAvgLiq">-- / --</div>
+      </div>
+    </div>
+
+    <div class="workspace">
+      <div class="chart-box">
+        <div class="chart-toolbar">
+          <div class="ema-legend">
+            <span><strong style="color:#ff3b30;">━</strong> EMA 21 (紅)</span>
+            <span><strong style="color:#2997ff;">━</strong> EMA 55 (藍)</span>
+            <span><strong style="color:#ffffff;">━</strong> EMA 144 (白)</span>
+            <span><span class="poi-swatch" style="background:rgba(0,200,83,0.28);border:1px solid #00c853;"></span>看漲 POI (需求區)</span>
+            <span><span class="poi-swatch" style="background:rgba(255,59,48,0.28);border:1px solid #ff3b30;"></span>看跌 POI (供給區)</span>
+            <span><strong style="color:#ffd60a;">---</strong> 持倉均價</span>
+            <span><strong style="color:#ff3b30;">---</strong> 強平價</span>
+          </div>
+
+          <div class="controls-row" id="replayControls" style="display:none;">
+            <button id="playPauseBtn" onclick="togglePlay()">▶ 自動播放</button>
+            <button onclick="stepForward()">+1 步進</button>
+            <select id="speedSelect" onchange="updatePlayInterval()">
+              <option value="1200">慢速 (1.2s)</option>
+              <option value="600" selected>中速 (0.6s)</option>
+              <option value="250">快速 (0.25s)</option>
+            </select>
+            <span id="replayProgress" style="font-size:12px;color:var(--muted);">進度: --/--</span>
+          </div>
+        </div>
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="klineCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="side-panel">
+        <div class="section-title">1. 首單開倉設定</div>
+
+        <div class="form-group">
+          <div class="form-label">
+            <span>槓桿倍數</span>
+            <strong id="levLabel" class="pos-yellow">5x</strong>
+          </div>
+          <input type="range" id="levRange" min="1" max="50" value="5" oninput="updateLevLabel()" />
+          <div class="btn-grid">
+            <button onclick="setLev(3)">3x</button>
+            <button onclick="setLev(5)">5x</button>
+            <button onclick="setLev(10)">10x</button>
+            <button onclick="setLev(20)">20x</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <div class="form-label">
+            <span>開倉保證金比例 (佔可用餘額)</span>
+            <strong id="marginPctLabel">25%</strong>
+          </div>
+          <div class="btn-grid" id="marginPctBtns">
+            <button onclick="setMarginPct(10, this)">10%</button>
+            <button class="active" onclick="setMarginPct(25, this)">25%</button>
+            <button onclick="setMarginPct(50, this)">50%</button>
+            <button onclick="setMarginPct(100, this)">100%</button>
+          </div>
+        </div>
+
+        <div class="btn-grid-2">
+          <button class="btn-long" onclick="openPosition('LONG')">開多 (Long)</button>
+          <button class="btn-short" onclick="openPosition('SHORT')">開空 (Short)</button>
+        </div>
+
+        <div class="section-title">2. 浮盈滾倉加碼 (同方向)</div>
+        <div class="btn-grid-3">
+          <button id="roll25" class="btn-roll" disabled onclick="rollPosition(0.25)">滾倉 25%</button>
+          <button id="roll50" class="btn-roll" disabled onclick="rollPosition(0.50)">滾倉 50%</button>
+          <button id="roll100" class="btn-roll" disabled onclick="rollPosition(1.00)">滾倉 100%</button>
+        </div>
+
+        <div class="section-title">3. 倉位管理</div>
+        <div class="btn-grid-2">
+          <button onclick="closeHalf()">平倉 50% 鎖利</button>
+          <button class="btn-short" onclick="closeAll('手動全部平倉')">全部平倉</button>
+        </div>
+
+        <div class="rule-note">
+          <strong>POI + 滾倉實戰節奏：</strong><br />
+          • 價格回踩未失效的 <strong>看漲/看跌 POI 區域</strong> 並站穩均線時建立首單。<br />
+          • 脫離成本區出現浮盈後再用「浮盈滾倉」加碼；加碼後留意<strong>黃色均價線</strong>與<strong>紅色強平線</strong>是否過於貼近現價。
+        </div>
+      </div>
+    </div>
+
+    <div class="log-box">
+      <div class="section-title">交易與滾倉紀錄</div>
+      <table>
+        <thead>
+          <tr>
+            <th>時間</th>
+            <th>幣種</th>
+            <th>動作</th>
+            <th>方向</th>
+            <th>成交價</th>
+            <th>變動數量</th>
+            <th>動用保證金</th>
+            <th>手續費</th>
+            <th>已實現盈虧</th>
+          </tr>
+        </thead>
+        <tbody id="tradeLogBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const INITIAL_BALANCE = 10000;
+    const TAKER_FEE = 0.0005;
+    const MAINT_MARGIN = 0.005;
+
+    const SYMBOL_META = {
+      BTCUSDT: { coin: 'BTC', icon: '₿', fallbackPrice: 91500, step: 650, decimals: 1 },
+      ETHUSDT: { coin: 'ETH', icon: 'Ξ', fallbackPrice: 3150, step: 45, decimals: 2 },
+      SOLUSDT: { coin: 'SOL', icon: '◎', fallbackPrice: 185, step: 6, decimals: 2 },
+      BCHUSDT: { coin: 'BCH', icon: '฿', fallbackPrice: 460, step: 12, decimals: 2 }
+    };
+
+    let state = {
+      symbol: 'BTCUSDT',
+      mode: 'live',
+      timeframe: '1h',
+      showPOI: true,
+      leverage: 5,
+      marginPct: 25,
+      balance: INITIAL_BALANCE,
+      posSide: null,
+      posSymbol: null,
+      posQty: 0,
+      entryPrice: 0,
+      usedMargin: 0,
+      currentPrice: 0,
+      currentBarTime: '--',
+      allCandles: [],
+      visibleCandles: [],
+      replayIndex: 120,
+      isPlaying: false,
+      playTimer: null,
+      liveTimer: null,
+      hoverX: null,
+      hoverY: null
+    };
+
+    const canvas = document.getElementById('klineCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrap = document.getElementById('canvasWrap');
+
+    function getMeta(sym = state.symbol) {
+      return SYMBOL_META[sym] || SYMBOL_META.BTCUSDT;
+    }
+
+    function fmtPrice(p, sym = state.symbol) {
+      const dec = getMeta(sym).decimals;
+      return p.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    function resizeCanvas() {
+      const rect = wrap.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawChart();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    canvas.addEventListener('mousemove', e => {
+      const rect = canvas.getBoundingClientRect();
+      state.hoverX = e.clientX - rect.left;
+      state.hoverY = e.clientY - rect.top;
+      drawChart();
+    });
+    canvas.addEventListener('mouseleave', () => {
+      state.hoverX = null;
+      state.hoverY = null;
+      drawChart();
+    });
+
+    function calcEMAArray(candles, period) {
+      const k = 2 / (period + 1);
+      let ema = null;
+      return candles.map(c => {
+        ema = ema === null ? c.close : c.close * k + ema * (1 - k);
+        return ema;
+      });
+    }
+
+    function formatTime(unixSec) {
+      const d = new Date(unixSec * 1000);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getMonth() + 1}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    // ========= 自動偵測 POI (Order Block + FVG 失衡推動區) =========
+    function detectPOIZones(candles) {
+      const zones = [];
+      if (candles.length < 15) return zones;
+
+      // 計算近期平均實體大小，用來過濾無效小波動
+      let sumBody = 0;
+      for (let i = Math.max(0, candles.length - 50); i < candles.length; i++) {
+        sumBody += Math.abs(candles[i].close - candles[i].open);
+      }
+      const avgBody = sumBody / Math.min(50, candles.length);
+
+      for (let i = 1; i < candles.length - 3; i++) {
+        const ob = candles[i];
+        const c1 = candles[i + 1];
+        const c2 = candles[i + 2];
+
+        // 1. 看漲 POI (Demand OB)：陰線後緊接強勢陽線推動並形成 FVG 或突破前高
+        const isBearOB = ob.close < ob.open;
+        const c1BullBody = c1.close - c1.open;
+        const hasBullFVG = c2.low > ob.high;
+        const strongBullMove = isBearOB && c1BullBody > avgBody * 1.15 && (hasBullFVG || c2.close > ob.high * 1.001);
+
+        if (strongBullMove) {
+          const top = Math.max(ob.open, ob.high);
+          const bottom = ob.low;
+          let mitigated = false;
+          for (let j = i + 3; j < candles.length; j++) {
+            // 若後續收盤價實體跌破 POI 下緣，視為失效
+            if (candles[j].close < bottom) {
+              mitigated = true;
+              break;
+            }
+          }
+          if (!mitigated) {
+            zones.push({
+              type: 'BULL',
+              startIndex: i,
+              top,
+              bottom,
+              hasFVG: hasBullFVG
+            });
+          }
+        }
+
+        // 2. 看跌 POI (Supply OB)：陽線後緊接強勢陰線下殺並形成 FVG 或跌破前低
+        const isBullOB = ob.close > ob.open;
+        const c1BearBody = c1.open - c1.close;
+        const hasBearFVG = c2.high < ob.low;
+        const strongBearMove = isBullOB && c1BearBody > avgBody * 1.15 && (hasBearFVG || c2.close < ob.low * 0.999);
+
+        if (strongBearMove) {
+          const top = ob.high;
+          const bottom = Math.min(ob.open, ob.low);
+          let mitigated = false;
+          for (let j = i + 3; j < candles.length; j++) {
+            // 若後續收盤價實體突破 POI 上緣，視為失效
+            if (candles[j].close > top) {
+              mitigated = true;
+              break;
+            }
+          }
+          if (!mitigated) {
+            zones.push({
+              type: 'BEAR',
+              startIndex: i,
+              top,
+              bottom,
+              hasFVG: hasBearFVG
+            });
+          }
+        }
+      }
+
+      // 保留距離現價最近且未被吞沒的最多 5 個有效 POI，避免畫面過亂
+      const lastClose = candles[candles.length - 1].close;
+      return zones
+        .sort((a, b) => {
+          const midA = (a.top + a.bottom) / 2;
+          const midB = (b.top + b.bottom) / 2;
+          return Math.abs(midA - lastClose) - Math.abs(midB - lastClose);
+        })
+        .slice(0, 5);
+    }
+
+    function drawChart() {
+      const rect = wrap.getBoundingClientRect();
+      const W = rect.width;
+      const H = rect.height;
+      ctx.clearRect(0, 0, W, H);
+
+      const all = state.visibleCandles;
+      if (!all || !all.length) return;
+
+      const ema21All = calcEMAArray(all, 21);
+      const ema55All = calcEMAArray(all, 55);
+      const ema144All = calcEMAArray(all, 144);
+
+      const showCount = Math.min(95, all.length);
+      const startIdx = all.length - showCount;
+      const candles = all.slice(startIdx);
+      const ema21 = ema21All.slice(startIdx);
+      const ema55 = ema55All.slice(startIdx);
+      const ema144 = ema144All.slice(startIdx);
+      const poiZones = state.showPOI ? detectPOIZones(candles) : [];
+
+      const padL = 14, padR = 82, padT = 22, padB = 28;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      let minP = Infinity, maxP = -Infinity;
+      candles.forEach((c, i) => {
+        minP = Math.min(minP, c.low, ema21[i], ema55[i], ema144[i]);
+        maxP = Math.max(maxP, c.high, ema21[i], ema55[i], ema144[i]);
+      });
+
+      const hasPosOnCurrentSym = state.posSide && state.posSymbol === state.symbol && state.entryPrice > 0;
+      const liq = hasPosOnCurrentSym ? getLiquidationPrice() : null;
+      if (hasPosOnCurrentSym) {
+        minP = Math.min(minP, state.entryPrice);
+        maxP = Math.max(maxP, state.entryPrice);
+        if (liq && liq > minP * 0.75 && liq < maxP * 1.25) {
+          minP = Math.min(minP, liq);
+          maxP = Math.max(maxP, liq);
+        }
+      }
+
+      const range = Math.max(0.01, maxP - minP);
+      minP -= range * 0.06;
+      maxP += range * 0.06;
+
+      const priceToY = p => padT + ((maxP - p) / (maxP - minP)) * plotH;
+      const yToPrice = y => maxP - ((y - padT) / plotH) * (maxP - minP);
+      const stepX = plotW / showCount;
+
+      // 網格與右側價格刻度
+      ctx.strokeStyle = '#141923';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = '#9ba3af';
+      ctx.font = '11px monospace';
+      ctx.textAlign = 'left';
+
+      const gridRows = 6;
+      for (let r = 0; r <= gridRows; r++) {
+        const y = padT + (plotH / gridRows) * r;
+        const p = yToPrice(y);
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(W - padR, y);
+        ctx.stroke();
+        ctx.fillText(fmtPrice(p), W - padR + 6, y + 4);
+      }
+
+      // 底部時間刻度
+      ctx.textAlign = 'center';
+      for (let i = 0; i < showCount; i += 15) {
+        const x = padL + i * stepX + stepX / 2;
+        ctx.fillText(formatTime(candles[i].time), x, H - 8);
+      }
+
+      // 1) 繪製 POI 需求區 / 供給區色塊（放在 K 線底層）
+      poiZones.forEach(z => {
+        const xStart = padL + z.startIndex * stepX;
+        const xEnd = W - padR;
+        const yTop = Math.max(padT, priceToY(z.top));
+        const yBot = Math.min(H - padB, priceToY(z.bottom));
+        if (yBot <= yTop) return;
+
+        const isBull = z.type === 'BULL';
+        ctx.fillStyle = isBull ? 'rgba(0, 200, 83, 0.16)' : 'rgba(255, 59, 48, 0.16)';
+        ctx.strokeStyle = isBull ? 'rgba(0, 200, 83, 0.65)' : 'rgba(255, 59, 48, 0.65)';
+        ctx.lineWidth = 1;
+
+        ctx.fillRect(xStart, yTop, xEnd - xStart, yBot - yTop);
+        ctx.strokeRect(xStart, yTop, xEnd - xStart, yBot - yTop);
+
+        ctx.fillStyle = isBull ? '#00e676' : '#ff6b6b';
+        ctx.font = 'bold 10px monospace';
+        ctx.textAlign = 'right';
+        const tag = `${isBull ? '看漲POI' : '看跌POI'}${z.hasFVG ? '+FVG' : ''} (${fmtPrice(z.bottom)}-${fmtPrice(z.top)})`;
+        ctx.fillText(tag, xEnd - 6, yTop + 12);
+      });
+
+      // 2) 繪製 EMA 均線（EMA 21=紅、EMA 55=藍、EMA 144=白）
+      function drawLine(arr, color, width = 1.7) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        arr.forEach((v, i) => {
+          const x = padL + i * stepX + stepX / 2;
+          const y = priceToY(v);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      }
+      drawLine(ema144, '#ffffff', 2.0); // EMA 144 白色
+      drawLine(ema55, '#2997ff', 1.7);  // EMA 55 藍色
+      drawLine(ema21, '#ff3b30', 1.7);  // EMA 21 紅色
+
+      // 3) 繪製 K 線（綠漲紅跌）
+      const bodyW = Math.max(3, stepX * 0.64);
+      candles.forEach((c, i) => {
+        const xCenter = padL + i * stepX + stepX / 2;
+        const isUp = c.close >= c.open;
+        const color = isUp ? '#00c853' : '#ff3b30';
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(xCenter, priceToY(c.high));
+        ctx.lineTo(xCenter, priceToY(c.low));
+        ctx.stroke();
+
+        const yOpen = priceToY(c.open);
+        const yClose = priceToY(c.close);
+        const top = Math.min(yOpen, yClose);
+        const h = Math.max(1.5, Math.abs(yClose - yOpen));
+        ctx.fillStyle = color;
+        ctx.fillRect(xCenter - bodyW / 2, top, bodyW, h);
+      });
+
+      // 4) 繪製水平價格標記線（現價、均價、強平價）
+      function drawTagLine(price, color, label, dashed = true) {
+        if (price < minP || price > maxP) return;
+        const y = priceToY(price);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.5;
+        if (dashed) ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(W - padR, y);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = color;
+        ctx.fillRect(W - padR + 2, y - 9, padR - 4, 18);
+        ctx.fillStyle = color === '#ffd60a' ? '#000' : '#fff';
+        ctx.font = 'bold 11px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(fmtPrice(price), W - padR + 5, y + 4);
+
+        ctx.fillStyle = color;
+        ctx.fillText(label, padL + 6, y - 5);
+      }
+
+      drawTagLine(state.currentPrice, '#2997ff', '現價', true);
+      if (hasPosOnCurrentSym) {
+        drawTagLine(state.entryPrice, '#ffd60a', `均價 (${state.posSide})`, true);
+        if (liq && liq > 0) {
+          drawTagLine(liq, '#ff3b30', '強平價', true);
+        }
+      }
+
+      // 5) 滑鼠十字準星查價
+      if (state.hoverX !== null && state.hoverY !== null &&
+          state.hoverX >= padL && state.hoverX <= W - padR &&
+          state.hoverY >= padT && state.hoverY <= H - padB) {
+        const idx = Math.min(showCount - 1, Math.max(0, Math.floor((state.hoverX - padL) / stepX)));
+        const c = candles[idx];
+
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.32)';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(state.hoverX, padT);
+        ctx.lineTo(state.hoverX, H - padB);
+        ctx.moveTo(padL, state.hoverY);
+        ctx.lineTo(W - padR, state.hoverY);
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(13, 17, 23, 0.94)';
+        ctx.fillRect(padL + 6, padT + 4, 480, 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '12px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(
+          `${formatTime(c.time)}  O:${fmtPrice(c.open)}  H:${fmtPrice(c.high)}  L:${fmtPrice(c.low)}  C:${fmtPrice(c.close)}`,
+          padL + 12,
+          padT + 19
+        );
+      }
+    }
+
+    async function fetchKlines(sym, tf, limit = 300) {
+      const badge = document.getElementById('connBadge');
+      const endpoints = [
+        `https://fapi.binance.com/fapi/v1/klines?symbol=${sym}&interval=${tf}&limit=${limit}`,
+        `https://api.binance.com/api/v3/klines?symbol=${sym}&interval=${tf}&limit=${limit}`
+      ];
+
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const raw = await res.json();
+          const candles = raw.map(k => ({
+            time: Math.floor(k[0] / 1000),
+            open: parseFloat(k[1]),
+            high: parseFloat(k[2]),
+            low: parseFloat(k[3]),
+            close: parseFloat(k[4])
+          }));
+          badge.textContent = `已連線即時盤面 (${sym})`;
+          badge.className = 'badge';
+          return candles;
+        } catch (e) {}
+      }
+
+      badge.textContent = `離線備援模擬 (${sym})`;
+      badge.className = 'badge warn';
+      return generateFallbackCandles(sym, limit);
+    }
+
+    function generateFallbackCandles(sym, count) {
+      const meta = getMeta(sym);
+      const now = Math.floor(Date.now() / 1000);
+      const step = 3600;
+      let price = meta.fallbackPrice;
+      const list = [];
+      for (let i = count; i > 0; i--) {
+        const t = now - i * step;
+        const change = (Math.random() - 0.49) * meta.step;
+        const open = price;
+        const close = Math.max(0.1, open + change);
+        const high = Math.max(open, close) + Math.random() * meta.step * 0.45;
+        const low = Math.max(0.05, Math.min(open, close) - Math.random() * meta.step * 0.45);
+        list.push({ time: t, open, high, low, close });
+        price = close;
+      }
+      return list;
+    }
+
+    async function fetchLiveTicker(sym) {
+      try {
+        const res = await fetch(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${sym}`);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return parseFloat(data.price);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function loadMarketData() {
+      stopTimers();
+      const meta = getMeta();
+      document.getElementById('pageTitleSym').textContent = `${meta.icon} ${state.symbol}`;
+      document.getElementById('mPriceLabel').textContent = `當前 ${meta.coin} 價格`;
+      document.getElementById('mPosLabel').textContent = `持倉方向 / 規模 (${state.posSymbol ? getMeta(state.posSymbol).coin : meta.coin})`;
+
+      const candles = await fetchKlines(state.symbol, state.timeframe, 300);
+      state.allCandles = candles;
+
+      if (state.mode === 'live') {
+        renderCandles(candles);
+        startLiveLoop();
+      } else {
+        state.replayIndex = Math.min(120, candles.length - 1);
+        renderCandles(candles.slice(0, state.replayIndex + 1));
+        updateReplayProgress();
+      }
+    }
+
+    function renderCandles(candles) {
+      if (!candles.length) return;
+      state.visibleCandles = candles;
+      const last = candles[candles.length - 1];
+      onPriceTick(last.close, formatTime(last.time));
+      drawChart();
+    }
+
+    function startLiveLoop() {
+      const symAtStart = state.symbol;
+      const meta = getMeta(symAtStart);
+      state.liveTimer = setInterval(async () => {
+        if (state.mode !== 'live' || state.symbol !== symAtStart || !state.allCandles.length) return;
+        const livePrice = await fetchLiveTicker(symAtStart);
+        const last = state.allCandles[state.allCandles.length - 1];
+        const jitter = (Math.random() - 0.5) * meta.step * 0.08;
+        const nextPrice = livePrice ?? Math.max(0.1, last.close + jitter);
+
+        last.close = nextPrice;
+        last.high = Math.max(last.high, nextPrice);
+        last.low = Math.min(last.low, nextPrice);
+
+        onPriceTick(nextPrice, formatTime(Math.floor(Date.now() / 1000)) + ' (即時)');
+        drawChart();
+      }, 2500);
+    }
+
+    function togglePOI() {
+      state.showPOI = !state.showPOI;
+      const btn = document.getElementById('poiToggleBtn');
+      btn.classList.toggle('active', state.showPOI);
+      btn.textContent = `POI 區域: ${state.showPOI ? '開' : '關'}`;
+      drawChart();
+    }
+
+    function switchSymbol(sym, btn) {
+      if (state.posSide && state.posSymbol && state.posSymbol !== sym) {
+        const curCoin = getMeta(state.posSymbol).coin;
+        const nextCoin = getMeta(sym).coin;
+        if (!confirm(`目前仍有 ${curCoin} 持倉未平倉，切換到 ${nextCoin} 後圖表均價/強平線只會顯示在 ${curCoin} 分頁。確定切換嗎？`)) {
+          return;
+        }
+      }
+      state.symbol = sym;
+      document.querySelectorAll('#symBtns button').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      loadMarketData();
+    }
+
+    function switchMode(mode) {
+      state.mode = mode;
+      document.getElementById('modeLiveBtn').classList.toggle('active', mode === 'live');
+      document.getElementById('modeReplayBtn').classList.toggle('active', mode === 'replay');
+      document.getElementById('replayControls').style.display = mode === 'replay' ? 'flex' : 'none';
+      loadMarketData();
+    }
+
+    function changeTimeframe() {
+      state.timeframe = document.getElementById('tfSelect').value;
+      loadMarketData();
+    }
+
+    function togglePlay() {
+      state.isPlaying = !state.isPlaying;
+      document.getElementById('playPauseBtn').textContent = state.isPlaying ? '⏸ 暫停' : '▶ 自動播放';
+      if (state.isPlaying) {
+        updatePlayInterval();
+      } else {
+        clearInterval(state.playTimer);
+      }
+    }
+
+    function updatePlayInterval() {
+      clearInterval(state.playTimer);
+      if (!state.isPlaying) return;
+      const ms = parseInt(document.getElementById('speedSelect').value, 10);
+      state.playTimer = setInterval(() => {
+        if (!stepForward()) {
+          state.isPlaying = false;
+          document.getElementById('playPauseBtn').textContent = '▶ 自動播放';
+          clearInterval(state.playTimer);
+        }
+      }, ms);
+    }
+
+    function stepForward() {
+      if (state.mode !== 'replay') return false;
+      if (state.replayIndex >= state.allCandles.length - 1) return false;
+      state.replayIndex++;
+      const slice = state.allCandles.slice(0, state.replayIndex + 1);
+      renderCandles(slice);
+      updateReplayProgress();
+      return true;
+    }
+
+    function updateReplayProgress() {
+      document.getElementById('replayProgress').textContent =
+        `進度: ${state.replayIndex + 1} / ${state.allCandles.length}`;
+    }
+
+    function stopTimers() {
+      clearInterval(state.liveTimer);
+      clearInterval(state.playTimer);
+      state.isPlaying = false;
+      document.getElementById('playPauseBtn').textContent = '▶ 自動播放';
+    }
+
+    function getMarkPriceForPos() {
+      if (!state.posSide || !state.posSymbol) return state.currentPrice;
+      if (state.posSymbol === state.symbol) return state.currentPrice;
+      return state.entryPrice || state.currentPrice;
+    }
+
+    function getUnrealizedPnl() {
+      if (!state.posSide || state.posQty <= 0) return 0;
+      const px = getMarkPriceForPos();
+      const diff = state.posSide === 'LONG'
+        ? (px - state.entryPrice)
+        : (state.entryPrice - px);
+      return diff * state.posQty;
+    }
+
+    function getLiquidationPrice() {
+      if (!state.posSide || state.posQty <= 0) return null;
+      if (state.posSide === 'LONG') {
+        const liq = state.entryPrice - (state.usedMargin / state.posQty) + state.entryPrice * MAINT_MARGIN;
+        return Math.max(0, liq);
+      } else {
+        const liq = state.entryPrice + (state.usedMargin / state.posQty) - state.entryPrice * MAINT_MARGIN;
+        return Math.max(0, liq);
+      }
+    }
+
+    function onPriceTick(price, timeStr) {
+      state.currentPrice = price;
+      state.currentBarTime = timeStr;
+      document.getElementById('barTimeInfo').textContent =
+        `最新時間：${timeStr} ｜ 手續費 0.05% ｜ 維持保證金率 0.5%`;
+
+      const liq = getLiquidationPrice();
+      if (liq !== null && state.posSymbol === state.symbol) {
+        if ((state.posSide === 'LONG' && price <= liq) ||
+            (state.posSide === 'SHORT' && price >= liq)) {
+          liquidatePosition(liq);
+          return;
+        }
+      }
+
+      updateUI();
+    }
+
+    function openPosition(side) {
+      if (!state.currentPrice) return;
+      if (state.posSide && state.posSymbol && state.posSymbol !== state.symbol) {
+        alert(`目前已有 ${getMeta(state.posSymbol).coin} 持倉，請先平倉後再切換幣種開倉。`);
+        return;
+      }
+      if (state.posSide && state.posSide !== side) {
+        alert('目前已有反向持倉，請先平倉後再反向開倉。');
+        return;
+      }
+
+      const avail = state.balance - state.usedMargin;
+      const marginToUse = avail * (state.marginPct / 100);
+      if (marginToUse < 10) {
+        alert('可用保證金不足（低於 $10）。');
+        return;
+      }
+
+      const notional = marginToUse * state.leverage;
+      const fee = notional * TAKER_FEE;
+      const netMargin = marginToUse - fee;
+      const addQty = (netMargin * state.leverage) / state.currentPrice;
+
+      if (!state.posSide) {
+        state.posSide = side;
+        state.posSymbol = state.symbol;
+        state.posQty = addQty;
+        state.entryPrice = state.currentPrice;
+        state.usedMargin = netMargin;
+      } else {
+        const totalCost = state.entryPrice * state.posQty + state.currentPrice * addQty;
+        state.posQty += addQty;
+        state.entryPrice = totalCost / state.posQty;
+        state.usedMargin += netMargin;
+      }
+
+      state.balance -= fee;
+      addLog('首單/加倉', side, state.currentPrice, addQty, netMargin, fee, 0);
+      updateUI();
+      drawChart();
+    }
+
+    function rollPosition(ratio) {
+      const upnl = getUnrealizedPnl();
+      if (!state.posSide || upnl <= 1) {
+        alert('需有正浮盈才能執行滾倉加碼。');
+        return;
+      }
+      if (state.posSymbol !== state.symbol) {
+        alert(`請先切換回 ${getMeta(state.posSymbol).coin} 再執行滾倉加碼。`);
+        return;
+      }
+
+      const profitMargin = upnl * ratio;
+      const notional = profitMargin * state.leverage;
+      const fee = notional * TAKER_FEE;
+      const netMargin = profitMargin - fee;
+      if (netMargin <= 0) return;
+
+      const addQty = (netMargin * state.leverage) / state.currentPrice;
+      const totalCost = state.entryPrice * state.posQty + state.currentPrice * addQty;
+
+      state.posQty += addQty;
+      state.entryPrice = totalCost / state.posQty;
+      state.usedMargin += netMargin;
+      state.balance -= fee;
+
+      addLog(`滾倉 (${Math.round(ratio * 100)}%浮盈)`, state.posSide, state.currentPrice, addQty, netMargin, fee, 0);
+      updateUI();
+      drawChart();
+    }
+
+    function closeHalf() {
+      if (!state.posSide || state.posQty <= 0) return;
+      const px = getMarkPriceForPos();
+      const closeQty = state.posQty * 0.5;
+      const upnl = getUnrealizedPnl() * 0.5;
+      const fee = (closeQty * px) * TAKER_FEE;
+      const realized = upnl - fee;
+
+      state.balance += realized;
+      state.usedMargin *= 0.5;
+      state.posQty -= closeQty;
+
+      addLog('減倉 50%', state.posSide, px, -closeQty, -state.usedMargin, fee, realized);
+      updateUI();
+      drawChart();
+    }
+
+    function closeAll(reason = '全部平倉') {
+      if (!state.posSide || state.posQty <= 0) return;
+      const px = getMarkPriceForPos();
+      const upnl = getUnrealizedPnl();
+      const fee = (state.posQty * px) * TAKER_FEE;
+      const realized = upnl - fee;
+
+      state.balance = Math.max(0, state.balance + realized);
+      addLog(reason, state.posSide, px, -state.posQty, -state.usedMargin, fee, realized);
+
+      state.posSide = null;
+      state.posSymbol = null;
+      state.posQty = 0;
+      state.entryPrice = 0;
+      state.usedMargin = 0;
+      updateUI();
+      drawChart();
+    }
+
+    function liquidatePosition(liqPrice) {
+      const loss = -state.usedMargin;
+      state.balance = Math.max(0, state.balance + loss);
+      addLog('觸發強平 (爆倉)', state.posSide, liqPrice, -state.posQty, -state.usedMargin, 0, loss);
+
+      state.posSide = null;
+      state.posSymbol = null;
+      state.posQty = 0;
+      state.entryPrice = 0;
+      state.usedMargin = 0;
+      updateUI();
+      drawChart();
+      alert(`價格觸及強平價 $${fmtPrice(liqPrice)}，倉位已遭強制平倉！`);
+    }
+
+    function resetAccount() {
+      state.balance = INITIAL_BALANCE;
+      state.posSide = null;
+      state.posSymbol = null;
+      state.posQty = 0;
+      state.entryPrice = 0;
+      state.usedMargin = 0;
+      document.getElementById('tradeLogBody').innerHTML = '';
+      updateUI();
+      drawChart();
+    }
+
+    function updateUI() {
+      const meta = getMeta();
+      const upnl = getUnrealizedPnl();
+      const equity = state.balance + upnl;
+      const avail = Math.max(0, state.balance - state.usedMargin);
+      const liq = getLiquidationPrice();
+
+      document.getElementById('mPrice').textContent = state.currentPrice
+        ? `$${fmtPrice(state.currentPrice)}`
+        : '--';
+
+      document.getElementById('mEquity').textContent = `$${equity.toFixed(2)}`;
+      document.getElementById('mBalance').textContent = `$${state.balance.toFixed(0)} / $${avail.toFixed(0)}`;
+
+      const pnlEl = document.getElementById('mPnl');
+      const roe = state.usedMargin > 0 ? (upnl / state.usedMargin) * 100 : 0;
+      pnlEl.textContent = `${upnl >= 0 ? '+' : ''}$${upnl.toFixed(2)} (${roe >= 0 ? '+' : ''}${roe.toFixed(1)}%)`;
+      pnlEl.className = 'metric-val ' + (upnl > 0 ? 'pos-green' : upnl < 0 ? 'pos-red' : '');
+
+      const posEl = document.getElementById('mPos');
+      if (state.posSide && state.posSymbol) {
+        const pCoin = getMeta(state.posSymbol).coin;
+        document.getElementById('mPosLabel').textContent = `持倉方向 / 規模 (${pCoin})`;
+        const sideText = state.posSide === 'LONG' ? '做多 LONG' : '做空 SHORT';
+        posEl.textContent = `${sideText} ${state.posQty.toFixed(4)} ${pCoin}`;
+        posEl.className = 'metric-val ' + (state.posSide === 'LONG' ? 'pos-green' : 'pos-red');
+      } else {
+        document.getElementById('mPosLabel').textContent = `持倉方向 / 規模 (${meta.coin})`;
+        posEl.textContent = '空手';
+        posEl.className = 'metric-val';
+      }
+
+      if (state.posSide && state.posSymbol) {
+        const pSym = state.posSymbol;
+        document.getElementById('mAvgLiq').textContent =
+          `$${fmtPrice(state.entryPrice, pSym)} / $${fmtPrice(liq, pSym)}`;
+      } else {
+        document.getElementById('mAvgLiq').textContent = '-- / --';
+      }
+
+      const canRoll = state.posSide !== null && state.posSymbol === state.symbol && upnl > 1;
+      document.getElementById('roll25').disabled = !canRoll;
+      document.getElementById('roll50').disabled = !canRoll;
+      document.getElementById('roll100').disabled = !canRoll;
+    }
+
+    function addLog(action, side, price, qty, margin, fee, realized) {
+      const sym = state.posSymbol || state.symbol;
+      const coin = getMeta(sym).coin;
+      const tbody = document.getElementById('tradeLogBody');
+      const tr = document.createElement('tr');
+      const pnlClass = realized > 0 ? 'pos-green' : realized < 0 ? 'pos-red' : '';
+      tr.innerHTML = `
+        <td>${state.currentBarTime}</td>
+        <td><strong>${coin}</strong></td>
+        <td>${action}</td>
+        <td class="${side === 'LONG' ? 'pos-green' : 'pos-red'}">${side}</td>
+        <td>$${fmtPrice(price, sym)}</td>
+        <td>${qty >= 0 ? '+' : ''}${qty.toFixed(4)} ${coin}</td>
+        <td>$${Math.abs(margin).toFixed(2)}</td>
+        <td>$${fee.toFixed(2)}</td>
+        <td class="${pnlClass}">${realized === 0 ? '--' : (realized > 0 ? '+' : '') + '$' + realized.toFixed(2)}</td>
+      `;
+      tbody.prepend(tr);
+    }
+
+    function updateLevLabel() {
+      state.leverage = parseInt(document.getElementById('levRange').value, 10);
+      document.getElementById('levLabel').textContent = `${state.leverage}x`;
+    }
+
+    function setLev(v) {
+      document.getElementById('levRange').value = v;
+      updateLevLabel();
+    }
+
+    function setMarginPct(pct, btn) {
+      state.marginPct = pct;
+      document.getElementById('marginPctLabel').textContent = `${pct}%`;
+      document.querySelectorAll('#marginPctBtns button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    resizeCanvas();
+    loadMarketData();
+  </script>
+</body>
+</html>
